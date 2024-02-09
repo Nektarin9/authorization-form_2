@@ -1,118 +1,77 @@
 import React from 'react';
 import style from './form.module.css';
-import { useState, useRef } from 'react';
+import { useForm } from 'react-hook-form';
+import * as yup from 'yup';
+import { yupResolver } from '@hookform/resolvers/yup';
+import { useRef } from 'react';
+import { useEffect } from 'react';
+const emailValid = /^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/;
 
 let stateMail = false;
 let statePassword = false;
 let stateNewPassword = false;
+function sendData(formData) {
+	console.log(formData);
+}
+const fieldsSchema = yup.object().shape({
+	email: yup
+		.string()
+		.matches(emailValid, 'Укажите адрес электронный почты в формате address@mail.ru'),
+	password: yup
+		.string()
+		.max(25, 'Пароль должен быть от 5 - 25 символов')
+		.min(5, 'Пароль должен быть от 5 - 25 символов'),
+	newPassword: yup.string().oneOf([yup.ref('password'), null], 'Пароль не совпадает'),
+});
 
 export const Form = () => {
-	const [value, setValue] = useState({
-		email: '',
-		password: '',
-		newPassword: '',
+	const {
+		register,
+		handleSubmit,
+		formState: { errors, isValid },
+	} = useForm({
+		defaultValues: {
+			email: '',
+			password: '',
+			newPassword: '',
+		},
+		resolver: yupResolver(fieldsSchema),
 	});
-	const [error, setError] = useState(null);
-	const [stateForm, setStateForm] = useState(false);
-
 	const submitButtonRef = useRef(null);
-	const emailValid = /^([A-Za-z0-9_\-\.])+\@([A-Za-z0-9_\-\.])+\.([A-Za-z]{2,4})$/;
 
-	function sendData(event) {
-		event.preventDefault();
-		console.log(value);
+	let error;
+	if (errors.email?.message) {
+		stateMail = false;
+		error = errors.email?.message;
+	} else if (errors.password?.message) {
+		statePassword = false;
+		error = errors.password?.message;
+	} else if (errors.newPassword?.message && !isValid) {
+		stateNewPassword = false;
+		error = errors.newPassword?.message;
+	} else {
+		error = null
+		stateMail = true;
+		statePassword = true;
+		stateNewPassword = true;
 	}
-
-	function selectButtonRef() {
-		if (stateMail && statePassword && stateNewPassword) {
-			setStateForm(true);
-			setTimeout(() => {
-				submitButtonRef.current.focus();
-			}, 0);
-		} else {
-			setStateForm(false);
+	useEffect(() => {
+		if (isValid) {
+			submitButtonRef.current.focus();
 		}
-	}
-
-	function onEmailChange({ target }) {
-		setValue({
-			...value,
-			email: target.value,
-		});
-		if (!emailValid.test(target.value)) {
-			stateMail = false;
-			selectButtonRef();
-		} else {
-			stateMail = true;
-			selectButtonRef();
-		}
-	}
-	function onBlurEmailChange({ target }) {
-		if (!emailValid.test(target.value)) {
-			setError('Укажите адрес электронный почты в формате address@mail.ru');
-		} else {
-			setError(null);
-		}
-	}
-	function onPasswordChange({ target }) {
-		setValue({
-			...value,
-			password: target.value,
-		});
-		if (
-			target.value.length >= 5 &&
-			target.value.length <= 25 &&
-			target.value === value.newPassword
-		) {
-			stateNewPassword = true;
-			statePassword = true;
-			setError(null);
-			selectButtonRef();
-		} else if (target.value.length <= 5 || target.value.length >= 25) {
-			setError('Пароль должен быть от 5 - 25 символов');
-			statePassword = false;
-			selectButtonRef();
-		} else {
-			stateNewPassword = false;
-			statePassword = true;
-			setError(null);
-			selectButtonRef();
-		}
-	}
-	function onNewPasswordChange({ target }) {
-		setValue({
-			...value,
-			newPassword: target.value,
-		});
-		if (
-			target.value.length >= 5 &&
-			target.value.length <= 25 &&
-			target.value === value.password
-		) {
-			setError(null);
-			stateNewPassword = true;
-			statePassword = true;
-			selectButtonRef();
-		} else {
-			setError('Пароль не совпадает');
-			stateNewPassword = false;
-			selectButtonRef();
-		}
-	}
+	}, [isValid]);
 
 	return (
 		<section className={style.form_container}>
-			<form onSubmit={sendData}>
+			<form onSubmit={handleSubmit(sendData)}>
 				{error && <p className={style.error}>{error}</p>}
 
 				<label>Email</label>
 				<input
-					className={stateMail ? style.input_mail : style.input}
+					className={stateMail ? style.input_enable : style.input}
 					name="Email"
-					type="email"
-					value={value.email}
-					onChange={onEmailChange}
-					onBlur={onBlurEmailChange}
+					type="text"
+					{...register('email')}
 				></input>
 
 				<label>Пароль</label>
@@ -120,8 +79,7 @@ export const Form = () => {
 					className={statePassword ? style.input_enable : style.input}
 					name="password"
 					type="password"
-					value={value.password}
-					onChange={onPasswordChange}
+					{...register('password')}
 				></input>
 
 				<label>Повтор пароля</label>
@@ -129,15 +87,10 @@ export const Form = () => {
 					className={stateNewPassword ? style.input_enable : style.input}
 					name="newPassword"
 					type="password"
-					value={value.newPassword}
-					onChange={onNewPasswordChange}
+					{...register('newPassword')}
 				></input>
 
-				<button
-					ref={submitButtonRef}
-					type="submit"
-					disabled={stateForm === false}
-				>
+				<button type="submit" ref={submitButtonRef} disabled={error}>
 					Зарегистрироваться
 				</button>
 			</form>
